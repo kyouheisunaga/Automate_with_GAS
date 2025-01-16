@@ -1,0 +1,97 @@
+// 特定のシートをPDF化してGoogleドライブに保存
+function outputSpreadsheetToPdf() {
+
+  try {
+    // スプレッドシートを取得
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+
+    // シートを取得
+    var sheet = ss.getSheetByName('シート1');
+
+    // シートIDを取得
+    var sheetId = sheet.getSheetId();
+
+    // スプレッドシートIDを取得
+    var ssId = ss.getId();
+
+    // PDF化のためのURLを作成
+    var url = `https://docs.google.com/spreadsheets/d/${ssId}/export?format=pdf&gid=${sheetId}`;
+
+    // URLからBlobデータを取得
+    var blob = UrlFetchApp.fetch(url, { headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() } }).getBlob();
+
+    // PDFのファイル名を指定
+    blob.setName(sheet.getName() + '_' + Utilities.formatDate(new Date(), 'JST', 'yyyyMMdd') + '.pdf');
+
+    // Google DriveのフォルダIDを指定
+    var folderId = 'フォルダID'; 
+
+    // Google Driveのフォルダを取得
+    var folder = DriveApp.getFolderById(folderId);
+
+    // PDFをフォルダに保存
+    folder.createFile(blob);
+  } catch (e) {
+    // エラーが発生した場合の処理
+    Logger.log('エラーが発生しました: ' + e);
+  }
+}
+
+// Googleドライブに保存されたPDFをGmailで送信
+function sendLatestPdfFromDrive_Revised() {
+  try {
+    // Google DriveのフォルダIDを指定
+    const folderId = 'フォルダID';
+
+    // Google Driveのフォルダを取得
+    const folder = DriveApp.getFolderById(folderId);
+
+    // フォルダ内のファイルを取得 (ファイル名でフィルタリングも可能ですが、更新日時で最新ファイルを取得する)
+    const files = folder.getFiles();
+    let latestFile = null;
+    let latestDate = new Date(0); // 1970/01/01
+
+    while (files.hasNext()) {
+      const file = files.next();
+      const fileDate = file.getLastUpdated();
+      if (fileDate > latestDate) {
+        latestDate = fileDate;
+        latestFile = file;
+      }
+    }
+
+    // 最新のファイルが見つかった場合
+    if (latestFile) {
+      // Gmailの下書きを作成 (宛先、件名、本文は以前のコードから流用)
+      const sheetName = latestFile.getName().replace(/_\d{8}\.pdf$/, ''); // ファイル名からシート名を取得
+      const recipient = 'メールアドレス'; // 宛先メールアドレス (必要に応じて変更)
+      const subject = `【${sheetName}】をお送りします。`; // 件名
+      const body = `メールの本文 例 \n ${sheetName}をお送りします。 `; // 本文 (必要に応じて変更)
+
+      const draft = GmailApp.createDraft(recipient, subject, body, {
+        attachments: [latestFile.getBlob()]
+      });
+
+      // 下書きメールのIDを取得
+      const draftId = draft.getId();
+
+      // 下書きメールのURLを生成
+      const draftUrl = `https://mail.google.com/mail/u/0/#drafts?compose=${draftId}`;
+
+      // 手入力で修正するためのリンクを表示 (スクリプトエディタのログに出力)
+      Logger.log('以下のリンクから下書きメールを編集してください:');
+      Logger.log(draftUrl);
+
+      // もし自動送信する場合は、以下のコメントアウトを解除
+      draft.send();
+      Logger.log('メールを送信しました。');
+
+    } else {
+      Logger.log('フォルダ内にファイルが見つかりませんでした。');
+    }
+
+  } catch (e) {
+    // エラーが発生した場合の処理
+    Logger.log('エラーが発生しました: ' + e);
+  }
+}
