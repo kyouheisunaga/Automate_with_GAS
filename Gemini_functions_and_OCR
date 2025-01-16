@@ -1,0 +1,77 @@
+// Gemini関数でOCRをデータ修正してもらった後に転記処理
+
+function transferData() {
+
+  // スプレッドシートを取得
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  
+
+  // シート1とシート2を取得
+
+  const sheet1 = ss.getSheetByName("シート1");
+
+  const sheet2 = ss.getSheetByName("シート2");
+
+
+
+  // 繰り返し処理 (U2からU5まで)(ONOFFプルダウンとIF文でgemini関数を動かす)
+
+  for (let i = 2; i <= 5; i++) {
+
+    // Uiのセルを取得 (例: U2, U3, U4, U5)
+
+    const uCell = sheet1.getRange("U" + i);
+
+
+
+    // Uiの値をONに変更(プルダウンをOFF→ ONにしてIF文でgemini関数をTRUEで動かす)
+
+    uCell.setValue("ON");
+
+
+
+    // Viの値を取得 (例: V2, V3, V4, V5)
+
+    const vValue = sheet1.getRange("V" + i).getValue();
+
+
+
+    // Viに値があるか確認
+
+    if (vValue !== "") {
+
+      // ★★★ 10秒待機 ★★★
+
+      Utilities.sleep(10000); // 10000ミリ秒 = 10秒
+
+      // 転記元のセル範囲を取得 ($BA$6:$CT$26)
+
+      const sourceRange = sheet1.getRange("BA7:CW26");
+
+      const valuesToTransfer = sourceRange.getValues();
+
+
+
+      // シート2の最終行を取得
+
+      const lastRow = sheet2.getLastRow();
+
+
+
+      // シート2の最終行の下に転記
+
+      sheet2.getRange(lastRow + 1, 1, valuesToTransfer.length, valuesToTransfer[0].length).setValues(valuesToTransfer);
+
+    }
+
+
+
+    // Uiの値をOFFに変更(プルダウンをON→ OFFにしてIF文でgemini関数をFALSEで停止させる)
+
+    uCell.setValue("OFF");
+
+  }
+
+}
